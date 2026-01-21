@@ -54,8 +54,8 @@ button{padding:4px 8px;cursor:pointer;}
 <th>Unit</th>
 <th>Status</th>
 <th>Asking Rent</th>
-<th class="admin-only">Owner</th>
-<th class="admin-only">Phone</th>
+<th class="admin-only">Owner Name</th>
+<th class="admin-only">Owner Phone</th>
 <th>Notes</th>
 <th class="admin-only">Edit</th>
 </tr>
@@ -73,7 +73,7 @@ const errDiv = document.getElementById("err");
 const list = document.getElementById("list");
 
 async function login(){
-  errDiv.innerText = "";
+  errDiv.innerText="";
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
@@ -92,17 +92,12 @@ async function login(){
       document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
     }
     loadProperties();
-  }catch(e){
-    errDiv.innerText="Cannot connect to server";
-    console.error(e);
-  }
+  }catch(e){ errDiv.innerText="Cannot connect to server"; console.error(e); }
 }
 
 async function loadProperties(){
   try{
-    const res = await fetch("/api/properties",{
-      headers:{ Authorization:"Bearer "+token }
-    });
+    const res = await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
     const data = await res.json();
     list.innerHTML="";
     data.properties.forEach(p=>{
@@ -111,20 +106,32 @@ async function loadProperties(){
       if(p.status==="Expiring") cls="yellow";
 
       list.innerHTML+=`
-<tr class="${cls}">
+<tr class="${cls}" data-id="${p.id}">
 <td>${p.project||""}</td>
 <td>${p.unit||""}</td>
 <td>${p.status||""}</td>
 <td>${p.asking_rent||""}</td>
 ${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
 <td>${p.notes||""}</td>
-${role==="ADMIN"?`<td><button onclick='editProperty(${JSON.stringify(p)})'>Edit</button></td>`:""}
+${role==="ADMIN"?`<td><button onclick='editProperty(${p.id})'>Edit</button></td>`:""}
 </tr>`;
     });
   }catch(e){ console.error(e); }
 }
 
-function editProperty(p){
+// ---------------- Edit 功能 ----------------
+let propertiesCache = {}; // 存储当前所有property
+async function loadPropertiesCache(){
+  const res = await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
+  const data = await res.json();
+  propertiesCache = {};
+  data.properties.forEach(p=>propertiesCache[p.id]=p);
+}
+loadPropertiesCache();
+
+function editProperty(id){
+  const p = propertiesCache[id];
+  if(!p) return;
   document.getElementById("pid").value=p.id;
   document.getElementById("project").value=p.project||"";
   document.getElementById("unit").value=p.unit||"";
@@ -135,18 +142,20 @@ function editProperty(p){
   document.getElementById("notes").value=p.notes||"";
 }
 
+// ---------------- Save 功能 ----------------
 async function save(){
   const body = {
-    project:project.value,
-    unit:unit.value,
-    status:status.value,
-    asking_rent:rent.value,
-    owner_name:owner.value,
-    owner_phone:phone.value,
-    notes:notes.value
+    project:document.getElementById("project").value,
+    unit:document.getElementById("unit").value,
+    status:document.getElementById("status").value,
+    asking_rent:document.getElementById("rent").value,
+    owner_name:document.getElementById("owner").value,
+    owner_phone:document.getElementById("phone").value,
+    notes:document.getElementById("notes").value
   };
+  const pid = document.getElementById("pid").value;
   let method="POST";
-  if(pid.value){ body.id=pid.value; method="PUT"; }
+  if(pid){ body.id=pid; method="PUT"; }
   await fetch("/api/properties",{
     method,
     headers:{
@@ -155,8 +164,9 @@ async function save(){
     },
     body:JSON.stringify(body)
   });
-  pid.value="";
-  loadProperties();
+  document.getElementById("pid").value="";
+  await loadProperties();
+  await loadPropertiesCache();
 }
 </script>
 </body>
