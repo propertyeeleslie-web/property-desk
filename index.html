@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Property Desk</title>
+<style>
+body { font-family: Arial,sans-serif; background:#f3f4f6; padding:30px; }
+.card { background:#fff; padding:20px; max-width:700px; margin:auto; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
+h2 { text-align:center; }
+input, button, select { width:100%; padding:10px; margin-top:10px; font-size:14px; }
+button { background:#1e40af; color:#fff; border:none; border-radius:6px; cursor:pointer }
+button:hover{background:#1d4ed8;}
+table{width:100%; border-collapse:collapse; margin-top:20px;}
+th,td{padding:8px; border-bottom:1px solid #e5e7eb;}
+.error{text-align:center; color:red; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="card" id="login-card">
+<h2>Property Desk Login</h2>
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
+<button onclick="login()">Login</button>
+<div id="error" class="error"></div>
+</div>
+
+<!-- APP -->
+<div class="card" id="app-card" style="display:none">
+<h2>Properties</h2>
+
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>Unit</th>
+<th>Status</th>
+<th>Asking Rent</th>
+<th>Owner</th>
+<th>Phone</th>
+<th>Notes</th>
+<th id="admin-actions" style="display:none">Actions</th>
+</tr>
+</thead>
+<tbody id="property-list"></tbody>
+</table>
+
+<h3>Add / Edit Property (Admin only)</h3>
+<div id="admin-form" style="display:none">
+<input id="project" placeholder="Project">
+<input id="unit_no" placeholder="Unit No">
+<input id="status" placeholder="Status">
+<input id="asking_rent" placeholder="Asking Rent">
+<input id="owner_name" placeholder="Owner Name">
+<input id="owner_phone" placeholder="Owner Phone">
+<input id="note" placeholder="Note">
+<button onclick="saveProperty()">Save</button>
+</div>
+</div>
+
+<script>
+const API="https://your-vercel-project.vercel.app/api";
+const loginCard=document.getElementById("login-card");
+const appCard=document.getElementById("app-card");
+const errorDiv=document.getElementById("error");
+const propertyList=document.getElementById("property-list");
+const adminActions=document.getElementById("admin-actions");
+const adminForm=document.getElementById("admin-form");
+
+let token="";
+let role="";
+
+async function login(){
+  errorDiv.innerText="";
+  try{
+    const res=await fetch(API+"/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      email:document.getElementById("email").value,
+      password:document.getElementById("password").value
+    })});
+    const data=await res.json();
+    if(data.error){errorDiv.innerText=data.error; return;}
+    token=data.token;
+    role=data.role;
+    loginCard.style.display="none";
+    appCard.style.display="block";
+    if(role==="ADMIN"){adminActions.style.display="table-cell"; adminForm.style.display="block";}
+    loadProperties();
+  }catch(err){errorDiv.innerText="Cannot connect to server";}
+}
+
+async function loadProperties(){
+  const res=await fetch(API+"/properties",{headers:{"Authorization":"Bearer "+token}});
+  const data=await res.json();
+  propertyList.innerHTML="";
+  data.properties.forEach(p=>{
+    let color="#bbf7d0"; // Vacant
+    if(p.status==="Rented") color="#fca5a5";
+    if(p.status==="Expiring") color="#fcd34d";
+    const tr=document.createElement("tr");
+    tr.style.background=color;
+    tr.innerHTML=`<td>${p.project||""}</td>
+                    <td>${p.unit_no||""}</td>
+                    <td>${p.status||""}</td>
+                    <td>${p.asking_rent||""}</td>
+                    <td>${p.owner_name||""}</td>
+                    <td>${p.owner_phone||""}</td>
+                    <td>${p.note||""}</td>`;
+    propertyList.appendChild(tr);
+  });
+}
+
+async function saveProperty(){
+  const body={
+    project: document.getElementById("project").value,
+    unit_no: document.getElementById("unit_no").value,
+    status: document.getElementById("status").value,
+    asking_rent: document.getElementById("asking_rent").value,
+    owner_name: document.getElementById("owner_name").value,
+    owner_phone: document.getElementById("owner_phone").value,
+    note: document.getElementById("note").value
+  };
+  await fetch(API+"/properties",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+token},body:JSON.stringify(body)});
+  loadProperties();
+}
+</script>
+</body>
+</html>
