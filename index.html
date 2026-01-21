@@ -63,85 +63,116 @@ th,td{border-bottom:1px solid #ddd;padding:8px}
 </div>
 
 <script>
-let token="", role="";
+let token = "";
+let role = "";
+
+const loginCard = document.getElementById("login");
+const appCard = document.getElementById("app");
+const errDiv = document.getElementById("err");
+const list = document.getElementById("list");
 
 async function login(){
+  errDiv.innerText = "";
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
   const res = await fetch("/api/login",{
     method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      email:email.value.trim(),
-      password:password.value
-    })
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ email, password })
   });
+
   const data = await res.json();
-  if(!res.ok){ err.innerText=data.error; return; }
-  token=data.token; role=data.role;
-  login.style.display="none";
-  app.style.display="block";
-  if(role==="ADMIN"){
-    document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
+  if(!res.ok){
+    errDiv.innerText = data.error || "Login failed";
+    return;
   }
-  load();
+
+  token = data.token;
+  role = data.role;
+
+  loginCard.style.display = "none";
+  appCard.style.display = "block";
+
+  if(role === "ADMIN"){
+    document.querySelectorAll(".admin-only")
+      .forEach(el => el.style.display = "block");
+  }
+
+  loadProperties();
 }
 
-async function load(){
+async function loadProperties(){
   const res = await fetch("/api/properties",{
-    headers:{Authorization:"Bearer "+token}
+    headers:{ Authorization:"Bearer "+token }
   });
   const data = await res.json();
-  list.innerHTML="";
+
+  list.innerHTML = "";
+
   data.properties.forEach(p=>{
-    let cls="green";
-    if(p.status==="Rented") cls="red";
-    if(p.status==="Expiring") cls="yellow";
-    list.innerHTML+=`
+    let cls = "green";
+    if(p.status === "Rented") cls = "red";
+    if(p.status === "Expiring") cls = "yellow";
+
+    list.innerHTML += `
 <tr class="${cls}">
-<td>${p.project||""}</td>
-<td>${p.unit||""}</td>
-<td>${p.status||""}</td>
-<td>${p.asking_rent||""}</td>
-${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
-<td>${p.notes||""}</td>
-${role==="ADMIN"?`<td><button onclick='edit(${JSON.stringify(p)})'>Edit</button></td>`:""}
+<td>${p.project || ""}</td>
+<td>${p.unit || ""}</td>
+<td>${p.status || ""}</td>
+<td>${p.asking_rent || ""}</td>
+${role==="ADMIN"
+  ? `<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`
+  : ""
+}
+<td>${p.notes || ""}</td>
+${role==="ADMIN"
+  ? `<td><button onclick='editProperty(${JSON.stringify(p)})'>Edit</button></td>`
+  : ""
+}
 </tr>`;
   });
 }
 
-function edit(p){
-  pid.value=p.id;
-  project.value=p.project||"";
-  unit.value=p.unit||"";
-  status.value=p.status||"Vacant";
-  rent.value=p.asking_rent||"";
-  owner.value=p.owner_name||"";
-  phone.value=p.owner_phone||"";
-  notes.value=p.notes||"";
+function editProperty(p){
+  document.getElementById("pid").value = p.id;
+  document.getElementById("project").value = p.project || "";
+  document.getElementById("unit").value = p.unit || "";
+  document.getElementById("status").value = p.status || "Vacant";
+  document.getElementById("rent").value = p.asking_rent || "";
+  document.getElementById("owner").value = p.owner_name || "";
+  document.getElementById("phone").value = p.owner_phone || "";
+  document.getElementById("notes").value = p.notes || "";
 }
 
 async function save(){
-  const body={
-    project:project.value,
-    unit:unit.value,
-    status:status.value,
-    asking_rent:rent.value,
-    owner_name:owner.value,
-    owner_phone:phone.value,
-    notes:notes.value
+  const body = {
+    project: project.value,
+    unit: unit.value,
+    status: status.value,
+    asking_rent: rent.value,
+    owner_name: owner.value,
+    owner_phone: phone.value,
+    notes: notes.value
   };
-  let method="POST";
-  if(pid.value){ body.id=pid.value; method="PUT"; }
+
+  let method = "POST";
+  if(pid.value){
+    body.id = pid.value;
+    method = "PUT";
+  }
+
   await fetch("/api/properties",{
     method,
     headers:{
       "Content-Type":"application/json",
       Authorization:"Bearer "+token
     },
-    body:JSON.stringify(body)
+    body: JSON.stringify(body)
   });
-  pid.value="";
-  load();
+
+  pid.value = "";
+  loadProperties();
 }
 </script>
-</body>
-</html>
