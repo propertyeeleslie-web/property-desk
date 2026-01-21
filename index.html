@@ -1,98 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Property Desk</title>
 <style>
-body { font-family: Arial,sans-serif; background:#f3f4f6; padding:20px; }
-.card { background:#fff; padding:20px; max-width:700px; margin:auto; border-radius:10px; box-shadow:0 5px 15px rgba(0,0,0,0.1); }
-h2 { text-align:center; }
-input, button { width:100%; padding:10px; margin-top:10px; font-size:14px; }
-button { background:#1e40af; color:#fff; border:none; border-radius:6px; cursor:pointer }
-button:hover{background:#1d4ed8;}
-table{width:100%; border-collapse:collapse; margin-top:20px;}
-th,td{padding:8px; border-bottom:1px solid #e5e7eb;}
-.error{text-align:center; color:red; margin-top:10px;}
+body{font-family:Arial;background:#f3f4f6;padding:20px}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto}
+input,select,button{padding:8px;margin:5px;width:100%}
+table{width:100%;border-collapse:collapse;margin-top:20px}
+th,td{border-bottom:1px solid #ddd;padding:8px}
+.green{background:#bbf7d0}
+.red{background:#fca5a5}
+.yellow{background:#fde68a}
+.admin-only{display:none}
 </style>
 </head>
 <body>
 
-<div class="card" id="login-card">
-<h2>Property Desk Login</h2>
+<div class="card" id="login">
+<h2>Login</h2>
 <input id="email" placeholder="Email">
 <input id="password" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
-<div id="error" class="error"></div>
+<div id="err"></div>
 </div>
 
-<div class="card" id="app-card" style="display:none">
+<div class="card" id="app" style="display:none">
 <h2>Properties</h2>
+
+<div class="admin-only">
+<h3>Add / Edit Property</h3>
+<input id="pid" type="hidden">
+<input id="project" placeholder="Project">
+<input id="unit" placeholder="Unit">
+<select id="status">
+<option>Vacant</option>
+<option>Rented</option>
+</select>
+<input id="rent" placeholder="Asking Rent">
+<input id="owner" placeholder="Owner Name">
+<input id="phone" placeholder="Owner Phone">
+<input id="notes" placeholder="Notes">
+<button onclick="save()">Save</button>
+</div>
+
 <table>
 <thead>
 <tr>
 <th>Project</th>
 <th>Unit</th>
 <th>Status</th>
-<th>Asking Rent</th>
-<th>Owner Name</th>
-<th>Owner Phone</th>
+<th>Rent</th>
+<th class="admin-only">Owner</th>
+<th class="admin-only">Phone</th>
 <th>Notes</th>
+<th class="admin-only">Edit</th>
 </tr>
 </thead>
-<tbody id="property-list"></tbody>
+<tbody id="list"></tbody>
 </table>
 </div>
 
 <script>
-const API = "https://property-desk-rqjt.vercel.app/api";
-
 let token="", role="";
 
 async function login(){
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const errorDiv = document.getElementById("error");
-  errorDiv.innerText="";
-  try{
-    const res = await fetch(API+"/login", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({email,password})
-    });
-    const data = await res.json();
-    if(data.error){ errorDiv.innerText=data.error; return;}
-    token = data.token;
-    role = data.role;
-    document.getElementById("login-card").style.display="none";
-    document.getElementById("app-card").style.display="block";
-    loadProperties();
-  }catch(e){
-    errorDiv.innerText="Cannot connect to server";
+  const res = await fetch("/api/login",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      email:email.value.trim(),
+      password:password.value
+    })
+  });
+  const data = await res.json();
+  if(!res.ok){ err.innerText=data.error; return; }
+  token=data.token; role=data.role;
+  login.style.display="none";
+  app.style.display="block";
+  if(role==="ADMIN"){
+    document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
   }
+  load();
 }
 
-async function loadProperties(){
-  const res = await fetch(API+"/properties", { headers:{"Authorization":"Bearer "+token}});
+async function load(){
+  const res = await fetch("/api/properties",{
+    headers:{Authorization:"Bearer "+token}
+  });
   const data = await res.json();
-  const list = document.getElementById("property-list");
   list.innerHTML="";
   data.properties.forEach(p=>{
-    const tr = document.createElement("tr");
-    let bg="#bbf7d0";
-    if(p.status==="Rented") bg="#fca5a5";
-    if(p.status==="Expiring") bg="#fcd34d";
-    tr.style.background=bg;
-    tr.innerHTML=`<td>${p.project||""}</td><td>${p.unit_no||""}</td><td>${p.status||""}</td>
-    <td>${p.asking_rent||""}</td>
-    <td>${p.owner_name||""}</td>
-    <td>${p.owner_phone||""}</td>
-    <td>${p.note||""}</td>`;
-    if(role!=="ADMIN"){ tr.cells[4].innerText=""; tr.cells[5].innerText=""; } 
-    list.appendChild(tr);
+    let cls="green";
+    if(p.status==="Rented") cls="red";
+    if(p.status==="Expiring") cls="yellow";
+    list.innerHTML+=`
+<tr class="${cls}">
+<td>${p.project||""}</td>
+<td>${p.unit||""}</td>
+<td>${p.status||""}</td>
+<td>${p.asking_rent||""}</td>
+${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
+<td>${p.notes||""}</td>
+${role==="ADMIN"?`<td><button onclick='edit(${JSON.stringify(p)})'>Edit</button></td>`:""}
+</tr>`;
   });
 }
-</script>
 
+function edit(p){
+  pid.value=p.id;
+  project.value=p.project||"";
+  unit.value=p.unit||"";
+  status.value=p.status||"Vacant";
+  rent.value=p.asking_rent||"";
+  owner.value=p.owner_name||"";
+  phone.value=p.owner_phone||"";
+  notes.value=p.notes||"";
+}
+
+async function save(){
+  const body={
+    project:project.value,
+    unit:unit.value,
+    status:status.value,
+    asking_rent:rent.value,
+    owner_name:owner.value,
+    owner_phone:phone.value,
+    notes:notes.value
+  };
+  let method="POST";
+  if(pid.value){ body.id=pid.value; method="PUT"; }
+  await fetch("/api/properties",{
+    method,
+    headers:{
+      "Content-Type":"application/json",
+      Authorization:"Bearer "+token
+    },
+    body:JSON.stringify(body)
+  });
+  pid.value="";
+  load();
+}
+</script>
 </body>
 </html>
