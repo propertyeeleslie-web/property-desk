@@ -5,15 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Property Desk</title>
 <style>
-body{font-family:Arial;background:#f3f4f6;padding:20px}
-.card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto}
-input,select,button{padding:8px;margin:5px;width:100%}
-table{width:100%;border-collapse:collapse;margin-top:20px}
-th,td{border-bottom:1px solid #ddd;padding:8px}
-.green{background:#bbf7d0}
-.red{background:#fca5a5}
-.yellow{background:#fde68a}
-.admin-only{display:none}
+body{font-family:Arial,sans-serif;background:#f3f4f6;padding:20px}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto;overflow-x:auto;}
+input,select,button{padding:8px;margin:5px;width:100%;box-sizing:border-box;}
+table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:fixed;word-wrap:break-word;}
+th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top;}
+th{background:#f3f4f6;}
+.green{background:#bbf7d0;}
+.red{background:#fca5a5;}
+.yellow{background:#fde68a;}
+.admin-only{display:none;}
+button{padding:4px 8px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -23,7 +25,7 @@ th,td{border-bottom:1px solid #ddd;padding:8px}
 <input id="email" placeholder="Email">
 <input id="password" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
-<div id="err"></div>
+<div id="err" style="color:red;"></div>
 </div>
 
 <div class="card" id="app" style="display:none">
@@ -51,7 +53,7 @@ th,td{border-bottom:1px solid #ddd;padding:8px}
 <th>Project</th>
 <th>Unit</th>
 <th>Status</th>
-<th>Rent</th>
+<th>Asking Rent</th>
 <th class="admin-only">Owner</th>
 <th class="admin-only">Phone</th>
 <th>Notes</th>
@@ -63,8 +65,7 @@ th,td{border-bottom:1px solid #ddd;padding:8px}
 </div>
 
 <script>
-let token = "";
-let role = "";
+let token="", role="";
 
 const loginCard = document.getElementById("login");
 const appCard = document.getElementById("app");
@@ -73,106 +74,90 @@ const list = document.getElementById("list");
 
 async function login(){
   errDiv.innerText = "";
-
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
 
-  const res = await fetch("/api/login",{
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({ email, password })
-  });
-
-  const data = await res.json();
-  if(!res.ok){
-    errDiv.innerText = data.error || "Login failed";
-    return;
+  try{
+    const res = await fetch("/api/login",{
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    if(!res.ok){ errDiv.innerText = data.error||"Login failed"; return; }
+    token = data.token; role = data.role;
+    loginCard.style.display="none";
+    appCard.style.display="block";
+    if(role==="ADMIN"){
+      document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
+    }
+    loadProperties();
+  }catch(e){
+    errDiv.innerText="Cannot connect to server";
+    console.error(e);
   }
-
-  token = data.token;
-  role = data.role;
-
-  loginCard.style.display = "none";
-  appCard.style.display = "block";
-
-  if(role === "ADMIN"){
-    document.querySelectorAll(".admin-only")
-      .forEach(el => el.style.display = "block");
-  }
-
-  loadProperties();
 }
 
 async function loadProperties(){
-  const res = await fetch("/api/properties",{
-    headers:{ Authorization:"Bearer "+token }
-  });
-  const data = await res.json();
+  try{
+    const res = await fetch("/api/properties",{
+      headers:{ Authorization:"Bearer "+token }
+    });
+    const data = await res.json();
+    list.innerHTML="";
+    data.properties.forEach(p=>{
+      let cls="green";
+      if(p.status==="Rented") cls="red";
+      if(p.status==="Expiring") cls="yellow";
 
-  list.innerHTML = "";
-
-  data.properties.forEach(p=>{
-    let cls = "green";
-    if(p.status === "Rented") cls = "red";
-    if(p.status === "Expiring") cls = "yellow";
-
-    list.innerHTML += `
+      list.innerHTML+=`
 <tr class="${cls}">
-<td>${p.project || ""}</td>
-<td>${p.unit || ""}</td>
-<td>${p.status || ""}</td>
-<td>${p.asking_rent || ""}</td>
-${role==="ADMIN"
-  ? `<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`
-  : ""
-}
-<td>${p.notes || ""}</td>
-${role==="ADMIN"
-  ? `<td><button onclick='editProperty(${JSON.stringify(p)})'>Edit</button></td>`
-  : ""
-}
+<td>${p.project||""}</td>
+<td>${p.unit||""}</td>
+<td>${p.status||""}</td>
+<td>${p.asking_rent||""}</td>
+${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
+<td>${p.notes||""}</td>
+${role==="ADMIN"?`<td><button onclick='editProperty(${JSON.stringify(p)})'>Edit</button></td>`:""}
 </tr>`;
-  });
+    });
+  }catch(e){ console.error(e); }
 }
 
 function editProperty(p){
-  document.getElementById("pid").value = p.id;
-  document.getElementById("project").value = p.project || "";
-  document.getElementById("unit").value = p.unit || "";
-  document.getElementById("status").value = p.status || "Vacant";
-  document.getElementById("rent").value = p.asking_rent || "";
-  document.getElementById("owner").value = p.owner_name || "";
-  document.getElementById("phone").value = p.owner_phone || "";
-  document.getElementById("notes").value = p.notes || "";
+  document.getElementById("pid").value=p.id;
+  document.getElementById("project").value=p.project||"";
+  document.getElementById("unit").value=p.unit||"";
+  document.getElementById("status").value=p.status||"Vacant";
+  document.getElementById("rent").value=p.asking_rent||"";
+  document.getElementById("owner").value=p.owner_name||"";
+  document.getElementById("phone").value=p.owner_phone||"";
+  document.getElementById("notes").value=p.notes||"";
 }
 
 async function save(){
   const body = {
-    project: project.value,
-    unit: unit.value,
-    status: status.value,
-    asking_rent: rent.value,
-    owner_name: owner.value,
-    owner_phone: phone.value,
-    notes: notes.value
+    project:project.value,
+    unit:unit.value,
+    status:status.value,
+    asking_rent:rent.value,
+    owner_name:owner.value,
+    owner_phone:phone.value,
+    notes:notes.value
   };
-
-  let method = "POST";
-  if(pid.value){
-    body.id = pid.value;
-    method = "PUT";
-  }
-
+  let method="POST";
+  if(pid.value){ body.id=pid.value; method="PUT"; }
   await fetch("/api/properties",{
     method,
     headers:{
       "Content-Type":"application/json",
       Authorization:"Bearer "+token
     },
-    body: JSON.stringify(body)
+    body:JSON.stringify(body)
   });
-
-  pid.value = "";
+  pid.value="";
   loadProperties();
 }
 </script>
+</body>
+</html>
