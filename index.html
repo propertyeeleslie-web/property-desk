@@ -6,10 +6,10 @@
 <title>Property Desk</title>
 <style>
 body{font-family:Arial,sans-serif;background:#f3f4f6;padding:20px}
-.card{background:#fff;padding:20px;border-radius:10px;max-width:1200px;margin:auto;overflow-x:auto;}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto;overflow-x:auto;}
 input,select,button{padding:6px;margin:4px;box-sizing:border-box;}
 table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:auto;}
-th,td{border-bottom:1px solid #ddd;padding:6px;text-align:left;vertical-align:top;white-space:nowrap;}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:left;vertical-align:top;white-space:normal;}
 th{background:#f3f4f6;}
 .green{background:#bbf7d0;}
 .red{background:#fca5a5;}
@@ -54,8 +54,7 @@ button{padding:4px 8px;cursor:pointer;}
 <th>Unit</th>
 <th>Status</th>
 <th>Asking Rent</th>
-<th class="admin-only">Owner Name</th>
-<th class="admin-only">Owner Phone</th>
+<th class="admin-only">Owner</th>
 <th>Notes</th>
 <th class="admin-only">Edit</th>
 </tr>
@@ -101,9 +100,12 @@ async function loadProperties(){
     propertiesCache[p.id]=p;
     let cls="green"; if(p.status==="Rented") cls="red"; if(p.status==="Expiring") cls="yellow";
 
-    // 左右列显示 Owner Name / Phone
-    const ownerName=role==="ADMIN"?p.owner_name||"": "";
-    const ownerPhone=role==="ADMIN"?p.owner_phone||"": "";
+    let ownerText="";
+    if(role==="ADMIN"){
+      const name = p.owner_name||"";
+      const phone = p.owner_phone||"";
+      ownerText = `${name}${phone?'<br>'+phone:''}`;
+    }
 
     list.innerHTML+=`
 <tr class="${cls}" data-id="${p.id}">
@@ -111,10 +113,9 @@ async function loadProperties(){
 <td>${p.unit||""}</td>
 <td>${p.status||""}</td>
 <td>${p.asking_rent||""}</td>
-<td>${ownerName}</td>
-<td>${ownerPhone}</td>
+<td class="admin-only">${ownerText}</td>
 <td>${p.notes||""}</td>
-<td>${role==="ADMIN"?`<button onclick="editProperty(${p.id})">Edit</button>`:""}</td>
+<td class="admin-only"><button onclick="editProperty(${p.id})">Edit</button></td>
 </tr>`;
   });
 }
