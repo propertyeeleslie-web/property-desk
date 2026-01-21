@@ -34,5 +34,9 @@ export default async function handler(req,res){
     .sign(new TextEncoder().encode(JWT_SECRET));
 
   res.json({token, role:user.role});
+  } catch(e){
+    console.error("Login error:", e);
+    res.status(500).json({error:"Internal server error"});
+  }
 }
 
