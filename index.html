@@ -6,10 +6,10 @@
 <title>Property Desk</title>
 <style>
 body{font-family:Arial,sans-serif;background:#f3f4f6;padding:20px}
-.card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto;overflow-x:auto;}
+.card{background:#fff;padding:20px;border-radius:10px;max-width:1200px;margin:auto;overflow-x:auto;}
 input,select,button{padding:6px;margin:4px;box-sizing:border-box;}
-table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:fixed;word-wrap:break-word;}
-th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top;}
+table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:auto;}
+th,td{border-bottom:1px solid #ddd;padding:6px;text-align:left;vertical-align:top;white-space:nowrap;}
 th{background:#f3f4f6;}
 .green{background:#bbf7d0;}
 .red{background:#fca5a5;}
@@ -71,7 +71,7 @@ const appCard=document.getElementById("app");
 const errDiv=document.getElementById("err");
 const list=document.getElementById("list");
 
-// 缓存 property 数据
+// 缓存 properties
 let propertiesCache = {};
 
 async function login(){
@@ -96,22 +96,25 @@ async function login(){
 async function loadProperties(){
   const res=await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
   const data=await res.json();
-  list.innerHTML="";
-  propertiesCache={};
+  list.innerHTML=""; propertiesCache={};
   data.properties.forEach(p=>{
     propertiesCache[p.id]=p;
     let cls="green"; if(p.status==="Rented") cls="red"; if(p.status==="Expiring") cls="yellow";
 
-    // 这里确保 Owner Name / Phone 左右排列
+    // 左右列显示 Owner Name / Phone
+    const ownerName=role==="ADMIN"?p.owner_name||"": "";
+    const ownerPhone=role==="ADMIN"?p.owner_phone||"": "";
+
     list.innerHTML+=`
 <tr class="${cls}" data-id="${p.id}">
 <td>${p.project||""}</td>
 <td>${p.unit||""}</td>
 <td>${p.status||""}</td>
 <td>${p.asking_rent||""}</td>
-${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
+<td>${ownerName}</td>
+<td>${ownerPhone}</td>
 <td>${p.notes||""}</td>
-${role==="ADMIN"?`<td><button onclick='editProperty(${p.id})'>Edit</button></td>`:""}
+<td>${role==="ADMIN"?`<button onclick="editProperty(${p.id})">Edit</button>`:""}</td>
 </tr>`;
   });
 }
