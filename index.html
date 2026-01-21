@@ -7,7 +7,7 @@
 <style>
 body{font-family:Arial,sans-serif;background:#f3f4f6;padding:20px}
 .card{background:#fff;padding:20px;border-radius:10px;max-width:1000px;margin:auto;overflow-x:auto;}
-input,select,button{padding:8px;margin:5px;width:100%;box-sizing:border-box;}
+input,select,button{padding:6px;margin:4px;box-sizing:border-box;}
 table{width:100%;border-collapse:collapse;margin-top:20px;table-layout:fixed;word-wrap:break-word;}
 th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top;}
 th{background:#f3f4f6;}
@@ -66,46 +66,44 @@ button{padding:4px 8px;cursor:pointer;}
 
 <script>
 let token="", role="";
+const loginCard=document.getElementById("login");
+const appCard=document.getElementById("app");
+const errDiv=document.getElementById("err");
+const list=document.getElementById("list");
 
-const loginCard = document.getElementById("login");
-const appCard = document.getElementById("app");
-const errDiv = document.getElementById("err");
-const list = document.getElementById("list");
+// 缓存 property 数据
+let propertiesCache = {};
 
 async function login(){
   errDiv.innerText="";
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value;
   try{
-    const res = await fetch("/api/login",{
+    const res=await fetch("/api/login",{
       method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ email, password })
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({email,password})
     });
-    const data = await res.json();
-    if(!res.ok){ errDiv.innerText = data.error||"Login failed"; return; }
-    token = data.token; role = data.role;
-    loginCard.style.display="none";
-    appCard.style.display="block";
-    if(role==="ADMIN"){
-      document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
-    }
-    loadProperties();
+    const data=await res.json();
+    if(!res.ok){ errDiv.innerText=data.error||"Login failed"; return; }
+    token=data.token; role=data.role;
+    loginCard.style.display="none"; appCard.style.display="block";
+    if(role==="ADMIN") document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
+    await loadProperties();
   }catch(e){ errDiv.innerText="Cannot connect to server"; console.error(e); }
 }
 
 async function loadProperties(){
-  try{
-    const res = await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
-    const data = await res.json();
-    list.innerHTML="";
-    data.properties.forEach(p=>{
-      let cls="green";
-      if(p.status==="Rented") cls="red";
-      if(p.status==="Expiring") cls="yellow";
+  const res=await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
+  const data=await res.json();
+  list.innerHTML="";
+  propertiesCache={};
+  data.properties.forEach(p=>{
+    propertiesCache[p.id]=p;
+    let cls="green"; if(p.status==="Rented") cls="red"; if(p.status==="Expiring") cls="yellow";
 
-      list.innerHTML+=`
+    // 这里确保 Owner Name / Phone 左右排列
+    list.innerHTML+=`
 <tr class="${cls}" data-id="${p.id}">
 <td>${p.project||""}</td>
 <td>${p.unit||""}</td>
@@ -115,23 +113,11 @@ ${role==="ADMIN"?`<td>${p.owner_name||""}</td><td>${p.owner_phone||""}</td>`:""}
 <td>${p.notes||""}</td>
 ${role==="ADMIN"?`<td><button onclick='editProperty(${p.id})'>Edit</button></td>`:""}
 </tr>`;
-    });
-  }catch(e){ console.error(e); }
+  });
 }
-
-// ---------------- Edit 功能 ----------------
-let propertiesCache = {}; // 存储当前所有property
-async function loadPropertiesCache(){
-  const res = await fetch("/api/properties",{ headers:{ Authorization:"Bearer "+token }});
-  const data = await res.json();
-  propertiesCache = {};
-  data.properties.forEach(p=>propertiesCache[p.id]=p);
-}
-loadPropertiesCache();
 
 function editProperty(id){
-  const p = propertiesCache[id];
-  if(!p) return;
+  const p=propertiesCache[id]; if(!p) return;
   document.getElementById("pid").value=p.id;
   document.getElementById("project").value=p.project||"";
   document.getElementById("unit").value=p.unit||"";
@@ -142,9 +128,8 @@ function editProperty(id){
   document.getElementById("notes").value=p.notes||"";
 }
 
-// ---------------- Save 功能 ----------------
 async function save(){
-  const body = {
+  const body={
     project:document.getElementById("project").value,
     unit:document.getElementById("unit").value,
     status:document.getElementById("status").value,
@@ -153,20 +138,16 @@ async function save(){
     owner_phone:document.getElementById("phone").value,
     notes:document.getElementById("notes").value
   };
-  const pid = document.getElementById("pid").value;
+  const pid=document.getElementById("pid").value;
   let method="POST";
   if(pid){ body.id=pid; method="PUT"; }
   await fetch("/api/properties",{
     method,
-    headers:{
-      "Content-Type":"application/json",
-      Authorization:"Bearer "+token
-    },
+    headers:{"Content-Type":"application/json", Authorization:"Bearer "+token},
     body:JSON.stringify(body)
   });
   document.getElementById("pid").value="";
   await loadProperties();
-  await loadPropertiesCache();
 }
 </script>
 </body>
